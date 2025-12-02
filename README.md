@@ -34,9 +34,45 @@ num_days = 61 : Number of days to create data
 hours_per_day = 10 : operational hours per day
 start_price = 10.22 : Initial stok value
 
+## Stochastic Trading Environment
+
+The `TradingEnv` generates realistic stochastic price movements from historical intraday data using random walks.
+
+### Price Dynamics:
+- Prices are generated with a **normal distribution** with configurable mean return and volatility
+- Data format: 2D array (num_days, hours_per_day) of price values
+- Each day represents one episode
+
+### Key Characteristics:
+- **Stochastic**: Prices vary randomly with normal distribution
+- **Continuous State**: Window of historical prices + current position
+- **Discrete Actions**: Hold (0), Buy (1), Sell (2)
+- **Reward**: Portfolio value change (cash + shares*price - initial_cash)
+- **Episode Length**: Fixed steps per day (hours_per_day)
+- **Partially Observable**: Agent sees only recent price history (window_size)
+
+### Environment Parameters:
+- `window_size = 3`: Historical prices retained in state
+- `hours_per_day = 10`: Steps per episode
+- `num_days = 360`: Days of generated data
+- `start_price = 10.22`: Initial asset price
+- `initial_cash = 100`: Starting capital
+
+### Position Tracking:
+- `position = 0`: No position (holding cash)
+- `position = 1`: Long position (holding shares)
+- Position prevents agent from doubling positions (can't buy if already in long)
+
+### Data Generation:
+The intraday prices are generated using `generate_intraday_prices()` function with:
+- **mean return**: μ (typically 0.001)
+- **volatility**: σ (typically 0.01)
+- Random walk: `price[t] = price[t-1] * exp(μ + σ * Z)` where Z ~ N(0,1)
+
 ## Deterministic Trading Environment
 
-The `DeterministicTradingEnv` is an alternative environment that uses the **Rulkov Map** (a chaotic dynamical system) to generate price movements deterministically.
+The `DeterministicTradingEnv` uses the **Rulkov Map** (a chaotic dynamical system) to generate price movements deterministically.
+Refs:
 
 ### Rulkov Map Dynamics:
 - **x_next = f(x, y + β, α)**: Price evolution function
@@ -56,12 +92,6 @@ The `DeterministicTradingEnv` is an alternative environment that uses the **Rulk
 - `alpha, beta, sigma, mu`: Rulkov Map parameters for price dynamics
 - `window_size = 3`: Historical prices retained in state
 - `initial_cash = 100`: Starting capital
-
-### Advantages vs Stochastic:
-- Reproducible behavior for testing/debugging
-- No randomness in price generation
-- Useful for understanding agent performance without variance
-- Faster training convergence expected
 
 Discussions:
 What happen if we have fewer train episodes? 
