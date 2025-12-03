@@ -18,9 +18,10 @@ class LinearFunctionApproximator:
     where the update uses gradient descent on squared error.
     """
 
-    def __init__(self, num_features, learning_rate=0.01):
+    def __init__(self, num_features, learning_rate=0.01, scale=100.0):
         self.num_features = num_features
         self.learning_rate = learning_rate
+        self.scale = float(scale)
         self.weights = np.zeros(num_features)
 
     def get_features(self, state):
@@ -28,23 +29,21 @@ class LinearFunctionApproximator:
             state = np.array(state)
         elif isinstance(state, (int, float)):
             state = np.array([state])
+        # Convert to float array and apply simple scaling to keep magnitudes reasonable
+        state = np.asarray(state, dtype=float)
+        if state.size == 0:
+            state_normalized = state
+        else:
+            # normalize by provided scale (typically the initial price)
+            state_normalized = state / self.scale
 
-        # Normalize state values to [-1, 1] range (simple heuristic)
-        state_normalized = np.clip(state / 100.0, -1, 1)
+        # Linear-only features: bias + (at most) one coefficient per state dimension
+        features = np.zeros(self.num_features, dtype=float)
 
-        features = np.zeros(self.num_features)
-        features[0] = 1.0  # bias
-
-        if self.num_features > 1 and len(state_normalized) > 0:
-            features[1] = state_normalized[0]
-
-        if self.num_features > 2 and len(state_normalized) > 0:
-            features[2] = state_normalized[0] ** 2
-
-        for i in range(3, min(self.num_features, 8)):
-            center = (i - 3) * 0.2 - 0.5
-            if len(state_normalized) > 0:
-                features[i] = np.exp(-((state_normalized[0] - center) ** 2) / 0.1)
+        if self.num_features > 1 and state_normalized.size > 0:
+            # number of linear features we can place
+            n_lin = min(self.num_features - 1, state_normalized.size)
+            features[1 : 1 + n_lin] = state_normalized[:n_lin]
 
         return features
 

@@ -21,7 +21,7 @@ class QLearningLinearAgent:
     Uses off-policy learning with maximum next action.
     """
     
-    def __init__(self, action_space_n, num_features=8, alpha=0.01, gamma=0.99, epsilon=0.1):
+    def __init__(self, action_space_n, num_features=8, alpha=0.01, gamma=0.99, epsilon=0.1, scale=100.0):
         """
         Initialize the Q-Learning agent.
         
@@ -39,7 +39,7 @@ class QLearningLinearAgent:
         
         # One approximator per action
         self.approximators = [
-            LinearFunctionApproximator(num_features, alpha)
+            LinearFunctionApproximator(num_features, learning_rate=alpha, scale=scale)
             for _ in range(action_space_n)
         ]
     
@@ -106,7 +106,8 @@ class QLearningLinearAgent:
 
 def train_q_learning_linear(env, num_episodes=1000, num_features=8, 
                             alpha=0.01, gamma=0.99, epsilon=0.1,
-                            epsilon_decay=0.995, epsilon_min=0.01):
+                            epsilon_decay=0.995, epsilon_min=0.01,
+                            scale=100.0):
     """
     Train an agent using Q-Learning with linear function approximation.
     
@@ -129,7 +130,8 @@ def train_q_learning_linear(env, num_episodes=1000, num_features=8,
         num_features=num_features,
         alpha=alpha,
         gamma=gamma,
-        epsilon=epsilon
+        epsilon=epsilon,
+        scale=scale,
     )
     
     rewards = []
@@ -160,8 +162,7 @@ def train_q_learning_linear(env, num_episodes=1000, num_features=8,
         
         if (episode + 1) % 100 == 0:
             avg_reward = np.mean(rewards[-100:])
-            print(f"Episode {episode + 1}/{num_episodes}, Avg Reward (last 100): {avg_reward:.2f}")
-    
+   
     return agent, rewards
 
 
