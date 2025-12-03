@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-mean_return = 0.001  # Average hourly return (negative = downward trend)
+mean_return = -0.001  # Average hourly return (negative = downward trend)
 volatility = 0.003    # Standard deviation of returns (3% volatility)
 
 def generate_intraday_prices(num_days=100, hours_per_day=10, start_price=10):

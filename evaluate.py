@@ -11,11 +11,14 @@ from import_data import generate_intraday_prices
 from monte_carlo import monte_carlo_train, discretize_state
 from q_learning import q_learning_train, discretize_state
 from sarsa import sarsa_train
+from monte_carlo_linear_approximator import train_with_linear_approximator, evaluate_agent
+from sarsa_linear_approximator import train_sarsa_linear, evaluate_sarsa_agent
+from q_learning_linear_approximator import train_q_learning_linear, evaluate_q_learning_agent
 
 # Hyperparameters
 window_size = 2
-num_train_episodes = 360*10  # 10 years of training experience
-num_eval_episodes = 360*1    # 1 year of evaluation
+num_train_episodes = 360 # 10 years of training experience
+num_eval_episodes = 36   # 1 year of evaluation
 
 # Monte Carlo hyperparameters
 gamma_mc = 0.99
@@ -69,17 +72,40 @@ def evaluate(env, Q, num_episodes=100):
     print(f"Average reward: {avg_reward:.2f} ± {std_reward:.2f}")
     return total_rewards
 
-def plot_rewards(rewards, filename="MonteCarlo_rewards.png"):
-    """Plot episode rewards over time."""
-    plt.figure(figsize=(10, 6))
-    plt.plot(rewards, label="Reward per episode")
+def plot_rewards(rewards, filename="MonteCarlo_rewards.png", title="Training Progress"):
+    """
+    Generic plotting function for training progress.
+    Works with all algorithms (Q-table and approximators).
+    
+    Args:
+        rewards: List of rewards per episode
+        filename: Output filename
+        title: Title for the plot
+    """
+    plt.figure(figsize=(12, 5))
+    
+    # Raw rewards
+    plt.subplot(1, 2, 1)
+    plt.plot(rewards, alpha=0.3, label="Episode reward")
     plt.xlabel("Episode")
     plt.ylabel("Reward")
-    plt.title("Policy Evaluation - Episode Rewards")
+    plt.title(f"{title} - Episode Rewards")
+    plt.grid(True)
+    
+    # Moving average
+    plt.subplot(1, 2, 2)
+    window = 5
+    moving_avg = np.convolve(rewards, np.ones(window)/window, mode='valid')
+    plt.plot(moving_avg, label=f"Moving average (window={window})")
+    plt.xlabel("Episode")
+    plt.ylabel("Average Reward")
+    plt.title(f"{title} - Moving Average")
     plt.grid(True)
     plt.legend()
+    
     plt.tight_layout()
     plt.savefig(filename)
+    print(f"Plot saved to {filename}")
 
 def plot_values(V, filename="MonteCarloValueFunction.png"):
     """Plot the value function."""
@@ -106,24 +132,24 @@ if __name__ == "__main__":
     Q_mc = monte_carlo_train(env, num_train_episodes, gamma_mc, epsilon_mc, N0_mc)
     V_mc = get_value_function(Q_mc)
     rewards_mc = evaluate(env, Q_mc, num_eval_episodes)
-    plot_rewards(rewards_mc)
-    plot_values(V_mc)
+    plot_rewards(rewards_mc, filename="MonteCarlo_rewards_stochastic.png", title="Stochastic Monte Carlo (Q-table)")
+    plot_values(V_mc, filename="MonteCarloValueFunction_stochastic.png")
     print("Stochastic Monte Carlo Training Done")
     
     print("Stochastic Q-Learning Training...")
     Q_ql, rewards_ql = q_learning_train(env, num_train_episodes, gamma=gamma_ql, alpha=alpha_ql, epsilon=epsilon_ql, epsilon_decay=epsilon_decay_ql, epsilon_min=epsilon_min_ql)
     V_ql = get_value_function(Q_ql)
     rewards_ql = evaluate(env, Q_ql, num_eval_episodes)
-    plot_rewards(rewards_ql, filename="QLearning_rewards_stochastic.png")
-    plot_values(V_ql, filename="QLearning_ValueFunction.png")
+    plot_rewards(rewards_ql, filename="QLearning_rewards_stochastic.png", title="Stochastic Q-Learning (Q-table)")
+    plot_values(V_ql, filename="QLearning_ValueFunction_stochastic.png")
     print("Stochastic Q-Learning Training Done")
     
     print("Stochastic SARSA Training...")
     Q_sarsa, rewards_sarsa = sarsa_train(env, num_train_episodes, alpha=alpha_sarsa, gamma=gamma_sarsa, epsilon=epsilon_sarsa)
     V_sarsa = get_value_function(Q_sarsa)
     rewards_sarsa_eval = evaluate(env, Q_sarsa, num_eval_episodes)
-    plot_rewards(rewards_sarsa_eval, filename="SARSA_rewards_stochastic.png")
-    plot_values(V_sarsa, filename="SARSA_ValueFunction.png")
+    plot_rewards(rewards_sarsa_eval, filename="SARSA_rewards_stochastic.png", title="Stochastic SARSA (Q-table)")
+    plot_values(V_sarsa, filename="SARSA_ValueFunction_stochastic.png")
     print("Stochastic SARSA Training Done")
         
     # Deterministic environment
@@ -132,7 +158,7 @@ if __name__ == "__main__":
     det_Q = monte_carlo_train(det_env, num_train_episodes, gamma_mc, epsilon_mc, N0_mc)
     det_V = get_value_function(det_Q)
     det_rewards = evaluate(det_env, det_Q, num_eval_episodes)
-    plot_rewards(det_rewards, filename="MonteCarlo_rewards_deterministic.png")
+    plot_rewards(det_rewards, filename="MonteCarlo_rewards_deterministic.png", title="Deterministic Monte Carlo (Q-table)")
     plot_values(det_V, filename="MonteCarloValueFunction_deterministic.png")
     print("Deterministic Monte Carlo Training Done")
     
@@ -140,7 +166,7 @@ if __name__ == "__main__":
     det_Q_ql, det_rewards_ql = q_learning_train(det_env, num_train_episodes, gamma=gamma_ql, alpha=alpha_ql, epsilon=epsilon_ql, epsilon_decay=epsilon_decay_ql, epsilon_min=epsilon_min_ql)
     det_V_ql = get_value_function(det_Q_ql)
     det_rewards_ql_eval = evaluate(det_env, det_Q_ql, num_eval_episodes)
-    plot_rewards(det_rewards_ql_eval, filename="QLearning_rewards_deterministic.png")
+    plot_rewards(det_rewards_ql_eval, filename="QLearning_rewards_deterministic.png", title="Deterministic Q-Learning (Q-table)")
     plot_values(det_V_ql, filename="QLearning_ValueFunction_deterministic.png")
     print("Deterministic Q-Learning Training Done")
     
@@ -148,6 +174,99 @@ if __name__ == "__main__":
     det_Q_sarsa, det_rewards_sarsa = sarsa_train(det_env, num_train_episodes, alpha=alpha_sarsa, gamma=gamma_sarsa, epsilon=epsilon_sarsa)
     det_V_sarsa = get_value_function(det_Q_sarsa)
     det_rewards_sarsa_eval = evaluate(det_env, det_Q_sarsa, num_eval_episodes)
-    plot_rewards(det_rewards_sarsa_eval, filename="SARSA_rewards_deterministic.png")
+    plot_rewards(det_rewards_sarsa_eval, filename="SARSA_rewards_deterministic.png", title="Deterministic SARSA (Q-table)")
     plot_values(det_V_sarsa, filename="SARSA_ValueFunction_deterministic.png")
     print("Deterministic SARSA Training Done")
+    
+    # Monte Carlo with Linear Function Approximator
+    print("Stochastic Monte Carlo with Linear Approximator Training...")
+    agent_mc_lin, rewards_mc_lin = train_with_linear_approximator(
+        env, 
+        num_episodes=num_train_episodes, 
+        num_features=8,
+        alpha=0.01, 
+        gamma=gamma_mc, 
+        epsilon=epsilon_mc,
+        epsilon_decay=0.995,
+        epsilon_min=0.01
+    )
+    rewards_mc_lin_eval = evaluate_agent(agent_mc_lin, env, num_eval_episodes)
+    plot_rewards(rewards_mc_lin, filename="MC_LinearApproximator_training_stochastic.png", title="Stochastic MC with Linear Approximator")
+    print("Stochastic Monte Carlo with Linear Approximator Training Done")
+    
+    print("Deterministic Monte Carlo with Linear Approximator Training...")
+    agent_mc_lin_det, rewards_mc_lin_det = train_with_linear_approximator(
+        det_env, 
+        num_episodes=num_train_episodes, 
+        num_features=8,
+        alpha=0.01, 
+        gamma=gamma_mc, 
+        epsilon=epsilon_mc,
+        epsilon_decay=0.995,
+        epsilon_min=0.01
+    )
+    rewards_mc_lin_det_eval = evaluate_agent(agent_mc_lin_det, det_env, num_eval_episodes)
+    plot_rewards(rewards_mc_lin_det, filename="MC_LinearApproximator_training_deterministic.png", title="Deterministic MC with Linear Approximator")
+    print("Deterministic Monte Carlo with Linear Approximator Training Done")
+    
+    # SARSA with Linear Function Approximator
+    print("Stochastic SARSA with Linear Approximator Training...")
+    agent_sarsa_lin, rewards_sarsa_lin = train_sarsa_linear(
+        env, 
+        num_episodes=num_train_episodes, 
+        num_features=8,
+        alpha=0.01, 
+        gamma=gamma_sarsa, 
+        epsilon=epsilon_sarsa,
+        epsilon_decay=0.995,
+        epsilon_min=0.01
+    )
+    rewards_sarsa_lin_eval = evaluate_sarsa_agent(agent_sarsa_lin, env, num_eval_episodes)
+    plot_rewards(rewards_sarsa_lin, filename="SARSA_LinearApproximator_training_stochastic.png", title="Stochastic SARSA with Linear Approximator")
+    print("Stochastic SARSA with Linear Approximator Training Done")
+    
+    print("Deterministic SARSA with Linear Approximator Training...")
+    agent_sarsa_lin_det, rewards_sarsa_lin_det = train_sarsa_linear(
+        det_env, 
+        num_episodes=num_train_episodes, 
+        num_features=8,
+        alpha=0.01, 
+        gamma=gamma_sarsa, 
+        epsilon=epsilon_sarsa,
+        epsilon_decay=0.995,
+        epsilon_min=0.01
+    )
+    rewards_sarsa_lin_det_eval = evaluate_sarsa_agent(agent_sarsa_lin_det, det_env, num_eval_episodes)
+    plot_rewards(rewards_sarsa_lin_det, filename="SARSA_LinearApproximator_training_deterministic.png", title="Deterministic SARSA with Linear Approximator")
+    print("Deterministic SARSA with Linear Approximator Training Done")
+    
+    # Q-Learning with Linear Function Approximator
+    print("Stochastic Q-Learning with Linear Approximator Training...")
+    agent_ql_lin, rewards_ql_lin = train_q_learning_linear(
+        env, 
+        num_episodes=num_train_episodes, 
+        num_features=8,
+        alpha=0.01, 
+        gamma=gamma_ql, 
+        epsilon=epsilon_ql,
+        epsilon_decay=epsilon_decay_ql,
+        epsilon_min=epsilon_min_ql
+    )
+    rewards_ql_lin_eval = evaluate_q_learning_agent(agent_ql_lin, env, num_eval_episodes)
+    plot_rewards(rewards_ql_lin, filename="QLearning_LinearApproximator_training_stochastic.png", title="Stochastic Q-Learning with Linear Approximator")
+    print("Stochastic Q-Learning with Linear Approximator Training Done")
+    
+    print("Deterministic Q-Learning with Linear Approximator Training...")
+    agent_ql_lin_det, rewards_ql_lin_det = train_q_learning_linear(
+        det_env, 
+        num_episodes=num_train_episodes, 
+        num_features=8,
+        alpha=0.01, 
+        gamma=gamma_ql, 
+        epsilon=epsilon_ql,
+        epsilon_decay=epsilon_decay_ql,
+        epsilon_min=epsilon_min_ql
+    )
+    rewards_ql_lin_det_eval = evaluate_q_learning_agent(agent_ql_lin_det, det_env, num_eval_episodes)
+    plot_rewards(rewards_ql_lin_det, filename="QLearning_LinearApproximator_training_deterministic.png", title="Deterministic Q-Learning with Linear Approximator")
+    print("Deterministic Q-Learning with Linear Approximator Training Done")
