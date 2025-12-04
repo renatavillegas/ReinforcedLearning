@@ -37,26 +37,19 @@ def sarsa_train(env, num_episodes, alpha=0.1, gamma=0.99, epsilon=0.1):
         action = epsilon_greedy(Q, s, env.action_space, epsilon)
         
         episode_reward = 0
-        episode_rewards_list = []
         done = False
         
         while not done:
             next_state, reward, done, _, _ = env.step(action)
             s_next = discretize_state(next_state)
             next_action = epsilon_greedy(Q, s_next, env.action_space, epsilon)
-            
             # SARSA update: Q(s,a) += alpha * (r + gamma * Q(s',a') - Q(s,a))
             Q[s][action] += alpha * (reward + gamma * Q[s_next][next_action] - Q[s][action])
-            
             s = s_next
             action = next_action
             episode_reward += reward
-            episode_rewards_list.append(reward)
-        # compute discounted return G_0 for this episode
-        G = 0.0
-        for r in reversed(episode_rewards_list):
-            G = r + gamma * G
-        rewards.append(G)
+        
+        rewards.append(episode_reward)
     
     return dict(Q), rewards
 
