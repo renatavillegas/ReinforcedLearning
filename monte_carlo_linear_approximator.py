@@ -128,6 +128,7 @@ def train_with_linear_approximator(env, num_episodes=1000, num_features=8,
         state, _ = env.reset()
         episode_trajectory = []
         episode_reward = 0
+        episode_rewards_list = []
         done = False
         
         # Collect episode
@@ -136,12 +137,17 @@ def train_with_linear_approximator(env, num_episodes=1000, num_features=8,
             next_state, reward, done, _, _ = env.step(action)
             episode_trajectory.append((state, action, reward))
             episode_reward += reward
+            episode_rewards_list.append(reward)
             state = next_state
         
         # Update agent using collected episode
         agent.update_episode(episode_trajectory)
-        
-        rewards.append(episode_reward)
+
+        # Record discounted return for the episode (G_0 = sum_t gamma^t * r_t)
+        G = 0.0
+        for r in reversed(episode_rewards_list):
+            G = r + agent.gamma * G
+        rewards.append(G)
         
         # Decay epsilon
         agent.epsilon = max(epsilon_min, agent.epsilon * epsilon_decay)
@@ -169,24 +175,28 @@ def evaluate_agent(agent, env, num_episodes=100):
     
     for episode in range(num_episodes):
         state, _ = env.reset()
-        episode_reward = 0
+        episode_rewards_list = []
         done = False
-        
+
         while not done:
             q_values = agent.get_action_values(state)
             action = np.argmax(q_values)
             next_state, reward, done, _, _ = env.step(action)
-            
-            episode_reward += reward
+
+            episode_rewards_list.append(reward)
             state = next_state
-        
-        rewards.append(episode_reward)
+
+        # compute discounted return for episode
+        G = 0.0
+        for r in reversed(episode_rewards_list):
+            G = r + agent.gamma * G
+        rewards.append(G)
     
     agent.epsilon = original_epsilon
     
     avg_reward = np.mean(rewards)
     std_reward = np.std(rewards)
-    print(f"Evaluation - Average reward: {avg_reward:.2f} ± {std_reward:.2f}")
+    print(f"Evaluation - Average reward (discounted): {avg_reward:.2f} ± {std_reward:.2f}")
     
     return rewards
 

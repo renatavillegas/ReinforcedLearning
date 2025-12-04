@@ -44,12 +44,14 @@ def q_learning_train(env, num_episodes=2000, gamma=0.95, alpha=0.3, epsilon=0.9,
         s = discretize_state(state)
         done = False
         total_reward = 0
+        episode_rewards_list = []
         while not done:
             # Choose action following epsilon-greedy policy
             action = epsilon_greedy(Q, s, env.action_space, epsilon)
             # Observe reward and next state
             next_state, reward, done, _, _ = env.step(action)
             total_reward += reward
+            episode_rewards_list.append(reward)
             s_next = discretize_state(next_state)
             # Choose best action for next state
             best_next_action = np.argmax(Q[s_next])
@@ -62,7 +64,11 @@ def q_learning_train(env, num_episodes=2000, gamma=0.95, alpha=0.3, epsilon=0.9,
             # Update Q-value
             Q[s][action] += alpha * td_error
             s = s_next
-        rewards.append(total_reward)
+        # compute discounted return for this episode
+        G = 0.0
+        for r in reversed(episode_rewards_list):
+            G = r + gamma * G
+        rewards.append(G)
         epsilon = max(epsilon_min, epsilon - epsilon_decay*epsilon)
 
     return dict(Q), rewards
